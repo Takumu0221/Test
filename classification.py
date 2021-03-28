@@ -1,29 +1,60 @@
-from sklearn.svm import SVC
+from sklearn.svm import SVC, LinearSVC
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.neural_network import MLPClassifier
+from sklearn import tree
 import pandas as pd
 from sklearn.metrics import accuracy_score
 from sklearn.metrics import confusion_matrix
 import time
 
-INPUT = 'companies_bow1.csv'
+INPUT = 'companies_bow2.csv'
+
+print("データセット : " + str(INPUT))
+df = pd.read_csv(INPUT)
+
+# 訓練データの準備
+df_training = df[df['training/test'] == 'training']
+X_train = df_training.drop(['index', 'company', 'category', 'training/test'], axis=1).values
+y_train = df_training['category'].ravel()
+
+# テストデータの準備
+df_test = df[df['training/test'] == 'test']
+X_test = df_test.drop(['index', 'company', 'category', 'training/test'], axis=1).values
+y_test = df_test['category'].ravel()
 
 
 def main():
-    print("データセット : " + str(INPUT))
-    df = pd.read_csv(INPUT)
-
-    # 訓練データの準備
-    df_training = df[df['training/test'] == 'training']
-    X_train = df_training.drop(['index', 'company', 'category', 'training/test'], axis=1).values
-    y_train = df_training['category'].ravel()
-
-    # テストデータの準備
-    df_test = df[df['training/test'] == 'test']
-    X_test = df_test.drop(['index', 'company', 'category', 'training/test'], axis=1).values
-    y_test = df_test['category'].ravel()
-
+    # SVM
     # 分類器の定義
+    print("\n~SVM~")
     clf = SVC(random_state=1, C=1, gamma=0.01, kernel='rbf')
+    classification(clf)
 
+    # LinearSVM
+    # 分類器の定義
+    print("\n~Linear SVM~")
+    clf = LinearSVC(random_state=1, C=1)
+    classification(clf)
+
+    # k近傍
+    # 分類器の定義
+    print("\n~K近傍法~")
+    clf = KNeighborsClassifier()
+    classification(clf)
+
+    # 決定木
+    # 分類器の定義
+    print("\n~決定木~")
+    clf = tree.DecisionTreeClassifier()
+    classification(clf)
+
+    # neural net
+    print("\n~Neural Net~")
+    clf = MLPClassifier()
+    classification(clf)
+
+
+def classification(clf):
     # 分類器の訓練
     t1 = time.time()
     clf = clf.fit(X_train, y_train)
@@ -51,6 +82,7 @@ def main():
         for c in conf:
             print(str(c) + '\t', end='')
         print('')
+
 
 
 if __name__ == '__main__':
