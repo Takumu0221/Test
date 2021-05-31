@@ -1,5 +1,9 @@
 from typing import Any, List, Optional, Union
+
+import numpy as np
 import torch
+import torch.nn.functional as f
+from torchsummary import summary
 import pytorch_lightning as pl
 from torch.utils import data
 from torch.utils.data import dataset, sampler, BatchSampler, DataLoader
@@ -12,8 +16,8 @@ from pytorch_lightning.callbacks.early_stopping import EarlyStopping
 
 
 class Dataset(dataset.Dataset):
-    ##本当は自作クラスを使わなくてもいいんだけど、一応作ります(自作メソッド足したくなるかも。画像表示とか。)
-    ##self.mnist_dataとselfの、継承元は同じクラスなので、self.mnist_dataをそのままdataloaderに突っ込んでも大丈夫
+    ## 本当は自作クラスを使わなくてもいいんだけど、一応作ります(自作メソッド足したくなるかも。画像表示とか。)
+    ## self.mnist_dataとselfの、継承元は同じクラスなので、self.mnist_dataをそのままdataloaderに突っ込んでも大丈夫
     def __init__(self, train=True, transform=lambda x: x):
         if os.path.exists("./datas/MNIST/processed/training.pt") and os.path.exists("./datas/MNIST/processed/test.pt"):
             mnist_data = torchvision.datasets.MNIST("./datas/", train=train, download=False, transform=transform)
@@ -54,15 +58,28 @@ class Model(pl.LightningModule):
         self.batch_size = 32
         self.eps = 1e-10
 
-        self.l1 = torch.nn.Linear(28 * 28, 10)  # 一層の線形層
-        # self.l2 = torch.nn.Linear()
+        input_num = 28 * 28
+        hidden = 10 * 10
+        self.l1 = torch.nn.Linear(int(409600 / 32), hidden)  # 一層の線形層
+        self.l2 = torch.nn.Linear(hidden, 10)  # 第2層
+        self.conv1 = torch.nn.Conv2d(1, 16, kernel_size=(5, 5))  # 畳み込み層1
+        self.conv2 = torch.nn.Conv2d(16, 32, kernel_size=(5, 5))  # 畳み込み層2
+        self.relu = torch.nn.ReLU()
 
     def criterion(self, y_hat, y):
         return -torch.log(torch.gather(y_hat, -1, y.unsqueeze(1)) + self.eps)
 
     def forward(self, x):  # def __call__(self.x)
         # ソフトマックス関数に通す！　&　追加した層への入力を行う（線形層，畳み込み層）
-        return torch.relu(self.l1(x.view(x.size(0), -1)))  # 一層の線形層に入力して活性化層に入力
+        # x = x.view(x.size(0), -1)
+        x = torch.from_numpy(np.expand_dims(x, 1))
+        x = torch.relu(self.conv1(x))
+        x = torch.relu(self.conv2(x))
+        x = x.view(-1, int(409600 / 32))
+        x = torch.relu(self.l1(x))
+        x = self.l2(x)
+        # return self.softmax(x)  # 一層の線形層に入力して活性化層に入力
+        return torch.softmax(x, dim=1)
 
     def training_step(self, batch, batch_idx):
         x, y = batch
@@ -118,6 +135,7 @@ class Model(pl.LightningModule):
     def configure_optimizers(self):
         # ここを変えてもOK（Optimizerの種類，パラメタ）
         return torch.optim.Adam(self.parameters(), lr=0.02)
+        # return torch.optim.SGD(self.parameters(), lr=0.01, momentum=5)
 
     # 以下の各種dataloader,prepare_data,setupのメソッドは本来pl.LightningDataModuleとしてまとめるんだけど(同様のデータを使う異なるモデルに転用するため)
     # 今回は他のモデルに転用予定がないしめんどくさいのでpl.LightningModuleとまとめちゃいます
@@ -131,9 +149,8 @@ class Model(pl.LightningModule):
         return DataLoader(self.mnist_test, batch_size=self.batch_size)
 
     def prepare_data(self) -> None:
-        # Downloadしたりとかする。マルチGPUに分割される前に呼び出される
-        # Download済みか確認してされてなければDownloadだけする
-        # Use this method to do things that might write to disk or that need to be done only from a single process in distributed settings.
+        # Downloadしたりとかする。マルチGPUに分割される前に呼び出される Download済みか確認してされてなければDownloadだけする Use this method to do things that
+        # might write to disk or that need to be done only from a single process in distributed settings.
         if os.path.exists("./datas/MNIST/processed/training.pt") and os.path.exists("./datas/MNIST/processed/test.pt"):
             pass
         else:
@@ -169,6 +186,7 @@ if __name__ == "__main__":
     logger = TensorBoardLogger('tb_logs', name="mnist")  # 文字列は適宜変えて
     torch.manual_seed(0)  # seedを固定して再現性を確保
     model = Model()
+    print(summary(model, (28, 28)))
     trainer = pl.Trainer(
         max_epochs=10,  # 最大何エポック回すか
         logger=logger,  # tensorboardloggerを使用して,lossの推移を観察
