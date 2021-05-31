@@ -59,11 +59,14 @@ class Model(pl.LightningModule):
         self.eps = 1e-10
 
         input_num = 28 * 28
-        hidden = 10 * 10
-        self.l1 = torch.nn.Linear(int(409600 / 32), hidden)  # 一層の線形層
+        hidden = 10 * 50
+        self.l1 = torch.nn.Linear(int(25600 * 4 / 32), hidden)  # 一層の線形層
         self.l2 = torch.nn.Linear(hidden, 10)  # 第2層
         self.conv1 = torch.nn.Conv2d(1, 16, kernel_size=(5, 5))  # 畳み込み層1
         self.conv2 = torch.nn.Conv2d(16, 32, kernel_size=(5, 5))  # 畳み込み層2
+        self.pool = torch.nn.MaxPool2d(2, 2)
+        self.dropout1 = torch.nn.Dropout2d(0.25)
+        self.dropout2 = torch.nn.Dropout2d(0.5)
         self.relu = torch.nn.ReLU()
 
     def criterion(self, y_hat, y):
@@ -72,11 +75,13 @@ class Model(pl.LightningModule):
     def forward(self, x):  # def __call__(self.x)
         # ソフトマックス関数に通す！　&　追加した層への入力を行う（線形層，畳み込み層）
         # x = x.view(x.size(0), -1)
-        x = torch.from_numpy(np.expand_dims(x, 1))
-        x = torch.relu(self.conv1(x))
-        x = torch.relu(self.conv2(x))
-        x = x.view(-1, int(409600 / 32))
+        x = x.unsqueeze(1)
+        x = self.relu(self.conv1(x))
+        x = self.pool(self.relu(self.conv2(x)))
+        x = self.dropout1(x)
+        x = x.view(-1, int(25600 * 4 / 32))
         x = torch.relu(self.l1(x))
+        x = self.dropout2(x)
         x = self.l2(x)
         # return self.softmax(x)  # 一層の線形層に入力して活性化層に入力
         return torch.softmax(x, dim=1)
