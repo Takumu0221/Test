@@ -59,11 +59,11 @@ class Model(pl.LightningModule):
         self.eps = 1e-10
 
         input_num = 28 * 28
-        hidden = 10 * 50
-        self.l1 = torch.nn.Linear(int(25600 * 4 / 32), hidden)  # 一層の線形層
+        hidden = 10 * 10
+        self.l1 = torch.nn.Linear(10 * 10 * 10, hidden)  # 一層の線形層
         self.l2 = torch.nn.Linear(hidden, 10)  # 第2層
-        self.conv1 = torch.nn.Conv2d(1, 16, kernel_size=(5, 5))  # 畳み込み層1
-        self.conv2 = torch.nn.Conv2d(16, 32, kernel_size=(5, 5))  # 畳み込み層2
+        self.conv1 = torch.nn.Conv2d(1, 5, kernel_size=(5, 5))  # 畳み込み層1
+        self.conv2 = torch.nn.Conv2d(5, 10, kernel_size=(5, 5))  # 畳み込み層2
         self.pool = torch.nn.MaxPool2d(2, 2)
         self.dropout1 = torch.nn.Dropout2d(0.25)
         self.dropout2 = torch.nn.Dropout2d(0.5)
@@ -79,7 +79,7 @@ class Model(pl.LightningModule):
         x = self.relu(self.conv1(x))
         x = self.pool(self.relu(self.conv2(x)))
         x = self.dropout1(x)
-        x = x.view(-1, int(25600 * 4 / 32))
+        x = x.view(-1, int(10 * 10 * 10))
         x = torch.relu(self.l1(x))
         x = self.dropout2(x)
         x = self.l2(x)
@@ -193,7 +193,7 @@ if __name__ == "__main__":
     model = Model()
     print(summary(model, (28, 28)))
     trainer = pl.Trainer(
-        max_epochs=10,  # 最大何エポック回すか
+        max_epochs=20,  # 最大何エポック回すか
         logger=logger,  # tensorboardloggerを使用して,lossの推移を観察
         # callbacks=[EarlyStopping(monitor='v/avg_loss')],#早期終了,使うならググって条件を変えてください
         # gradient_clip_val=2.0 #勾配クリッピング,数字はいい感じでよろ
