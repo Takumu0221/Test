@@ -19,7 +19,8 @@ class Dataset(dataset.Dataset):
     ## 本当は自作クラスを使わなくてもいいんだけど、一応作ります(自作メソッド足したくなるかも。画像表示とか。)
     ## self.mnist_dataとselfの、継承元は同じクラスなので、self.mnist_dataをそのままdataloaderに突っ込んでも大丈夫
     def __init__(self, train=True, transform=lambda x: x):
-        if os.path.exists("./datas/MNIST/processed/training.pt") and os.path.exists("./datas/MNIST/processed/test.pt"):
+        if os.path.exists("classification/datas/MNIST/processed/training.pt") and os.path.exists(
+                "classification/datas/MNIST/processed/test.pt"):
             mnist_data = torchvision.datasets.MNIST("./datas/", train=train, download=False, transform=transform)
         else:
             mnist_data = torchvision.datasets.MNIST("./datas", train=train, download=True, transform=transform)
@@ -60,8 +61,10 @@ class Model(pl.LightningModule):
 
         input_num = 28 * 28
         hidden = 10 * 10
-        self.l1 = torch.nn.Linear(10 * 10 * 10, hidden)  # 一層の線形層
-        self.l2 = torch.nn.Linear(hidden, 10)  # 第2層
+        hidden2 = 10
+        self.l1 = torch.nn.Linear(input_num, hidden)  # 一層の線形層
+        self.l2 = torch.nn.Linear(hidden, hidden2)  # 第2層
+        self.l3 = torch.nn.Linear(hidden2, 10)
         self.conv1 = torch.nn.Conv2d(1, 5, kernel_size=(5, 5))  # 畳み込み層1
         self.conv2 = torch.nn.Conv2d(5, 10, kernel_size=(5, 5))  # 畳み込み層2
         self.pool = torch.nn.MaxPool2d(2, 2)
@@ -80,9 +83,10 @@ class Model(pl.LightningModule):
         x = self.pool(self.relu(self.conv2(x)))
         x = self.dropout1(x)
         x = x.view(-1, int(10 * 10 * 10))
-        x = torch.relu(self.l1(x))
-        x = self.dropout2(x)
+        x = self.relu(self.l1(x))
+        # x = self.dropout2(x)
         x = self.l2(x)
+        # x = self.l3(x)
         # return self.softmax(x)  # 一層の線形層に入力して活性化層に入力
         return torch.softmax(x, dim=1)
 
@@ -140,7 +144,7 @@ class Model(pl.LightningModule):
     def configure_optimizers(self):
         # ここを変えてもOK（Optimizerの種類，パラメタ）
         return torch.optim.Adam(self.parameters(), lr=0.02)
-        # return torch.optim.SGD(self.parameters(), lr=0.01, momentum=5)
+        # return torch.optim.SGD(self.parameters(), lr=0.02)
 
     # 以下の各種dataloader,prepare_data,setupのメソッドは本来pl.LightningDataModuleとしてまとめるんだけど(同様のデータを使う異なるモデルに転用するため)
     # 今回は他のモデルに転用予定がないしめんどくさいのでpl.LightningModuleとまとめちゃいます
@@ -156,7 +160,8 @@ class Model(pl.LightningModule):
     def prepare_data(self) -> None:
         # Downloadしたりとかする。マルチGPUに分割される前に呼び出される Download済みか確認してされてなければDownloadだけする Use this method to do things that
         # might write to disk or that need to be done only from a single process in distributed settings.
-        if os.path.exists("./datas/MNIST/processed/training.pt") and os.path.exists("./datas/MNIST/processed/test.pt"):
+        if os.path.exists("classification/datas/MNIST/processed/training.pt") and os.path.exists(
+                "classification/datas/MNIST/processed/test.pt"):
             pass
         else:
             torchvision.datasets.MNIST("./datas", download=True)
@@ -193,7 +198,7 @@ if __name__ == "__main__":
     model = Model()
     print(summary(model, (28, 28)))
     trainer = pl.Trainer(
-        max_epochs=20,  # 最大何エポック回すか
+        max_epochs=10,  # 最大何エポック回すか
         logger=logger,  # tensorboardloggerを使用して,lossの推移を観察
         # callbacks=[EarlyStopping(monitor='v/avg_loss')],#早期終了,使うならググって条件を変えてください
         # gradient_clip_val=2.0 #勾配クリッピング,数字はいい感じでよろ
