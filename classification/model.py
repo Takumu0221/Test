@@ -19,8 +19,8 @@ class Dataset(dataset.Dataset):
     ## 本当は自作クラスを使わなくてもいいんだけど、一応作ります(自作メソッド足したくなるかも。画像表示とか。)
     ## self.mnist_dataとselfの、継承元は同じクラスなので、self.mnist_dataをそのままdataloaderに突っ込んでも大丈夫
     def __init__(self, train=True, transform=lambda x: x):
-        if os.path.exists("classification/datas/MNIST/processed/training.pt") and os.path.exists(
-                "classification/datas/MNIST/processed/test.pt"):
+        if os.path.exists("datas/MNIST/processed/training.pt") and os.path.exists(
+                "datas/MNIST/processed/test.pt"):
             mnist_data = torchvision.datasets.MNIST("./datas/", train=train, download=False, transform=transform)
         else:
             mnist_data = torchvision.datasets.MNIST("./datas", train=train, download=True, transform=transform)
@@ -160,8 +160,8 @@ class Model(pl.LightningModule):
     def prepare_data(self) -> None:
         # Downloadしたりとかする。マルチGPUに分割される前に呼び出される Download済みか確認してされてなければDownloadだけする Use this method to do things that
         # might write to disk or that need to be done only from a single process in distributed settings.
-        if os.path.exists("classification/datas/MNIST/processed/training.pt") and os.path.exists(
-                "classification/datas/MNIST/processed/test.pt"):
+        if os.path.exists("datas/MNIST/processed/training.pt") and os.path.exists(
+                "datas/MNIST/processed/test.pt"):
             pass
         else:
             torchvision.datasets.MNIST("./datas", download=True)
