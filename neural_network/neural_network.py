@@ -146,7 +146,7 @@ def cross_validation(
             loss_mse += MSE(z, test_cdata[j])
             loss_mae += MAE(z, test_cdata[j])
         print(f'test mse loss:{loss_mse / data_size}, test mae loss:{loss_mae / data_size}')
-        loss_mae_list.append(loss_mse / data_size)
+        loss_mse_list.append(loss_mse / data_size)
         loss_mae_list.append(loss_mae / data_size)
 
     print(f'cross validation result mse:{sum(loss_mse_list) / div} mae:{sum(loss_mae_list) / div}')
