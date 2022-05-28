@@ -1,32 +1,34 @@
-import math
-from multiprocessing import Process, Manager
-
 import numpy as np
+import math
 import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
+
 
 DATA_NUM = 10000
 DIV = 5
 EPOCH = 10
-LR = 0.00001
-HALF_NODES = 10
+LR = 0.0001
+HALF_NODES = 100
 
 
-def sigmoid(x):
+def sigmoid_(x):
     beta = 1.0
     if x >= 0:
         return 1.0 / (1.0 + np.exp(-beta * x))
     else:
         return np.exp(beta * x) / (np.exp(beta * x) + 1.0)
 
+def sigmoid(x):
+    beta = 1.0
+    sigmoid_range = 34.538776394910684
+    return 1.0 / (1.0 + np.exp(np.clip(-beta * x, -sigmoid_range, sigmoid_range)))
 
 def derivative_sigmoid(x):
     return x * (1.0 - x)
 
 
 def my_func(x1, x2):
-    # return ((x1 ** 2 * x2 ** 2) ** (1 / 3)) * math.cos(x1 * x2)
-    return x1 + x2
+    return ((x1 ** 2 * x2 ** 2) ** (1 / 3)) * math.cos(x1 * x2)
+    # return x1 + x2
 
 
 def calc_loss(z: np.ndarray, t: np.ndarray):
@@ -115,11 +117,6 @@ class NeuralNetwork:
 
 
 class NeuralNetworkMatrix(NeuralNetwork):
-    def __init__(self,
-                 *args,
-                 **kwargs):
-        super().__init__()
-
     def feed_forward(self, x: np.ndarray):
         """行列で計算する"""
         xT = x.T
@@ -132,16 +129,21 @@ class NeuralNetworkMatrix(NeuralNetwork):
         return z
 
     def back_prop(self, x, t):
-        xT = x.T
-        tT = t.T
+        xT = np.array(x, ndmin=2).T
+        tT = np.array(t, ndmin=2).T
 
         y = np.dot(self.w_ji, xT)
         y = self.act_func(y)
 
         z = np.dot(self.w_kj, y)
 
-        loss = tT - z
+        loss = - (tT - z)
         loss_h = np.dot(self.w_kj.T, loss)
+
+        self.w_kj += self.lr * np.dot((loss * self.der_act_func(z)), y.T)
+        self.w_ji += self.lr * np.dot((loss_h * self.der_act_func(z)), xT.T)
+
+        return z
 
 
 def train_and_test(
@@ -153,10 +155,8 @@ def train_and_test(
         process_index,
 ):
     """与えられた入力と正解データで学習及びテストを行う"""
-    nn = NeuralNetwork(
-        half_nodes=HALF_NODES,
-        lr=LR,
-    )
+    # nn = NeuralNetwork(half_nodes=HALF_NODES, lr=LR)
+    nn = NeuralNetworkMatrix(half_nodes=HALF_NODES, lr=LR)
 
     # 学習
     for e in range(EPOCH):
@@ -182,52 +182,6 @@ def train_and_test(
     plot(test_idata, output_data, test_cdata)
 
     returned_dict[process_index] = {'mse': loss_mse / data_size, 'mae': loss_mae / data_size}
-
-
-def cross_validation(
-        input_data,
-        correct_data,
-        div: int):
-    loss_mse_list = []
-    loss_mae_list = []
-
-    process_list = []
-    manager = Manager()
-    returned_dict = manager.dict()
-
-    for i in range(div):
-        # 訓練データとテストデータの振り分け
-        idx = list(range(i * int(DATA_NUM / div), (i + 1) * int(DATA_NUM / div)))
-        idx_b = np.ones(DATA_NUM, dtype=bool)
-        idx_b[idx] = False
-        training_idata = input_data[idx_b, :]
-        training_cdata = correct_data[idx_b, :]
-
-        test_idata = input_data[idx[0]:idx[-1] + 1, :]
-        test_cdata = correct_data[idx[0]:idx[-1] + 1, :]
-
-        process = Process(
-            target=train_and_test,
-            kwargs={
-                'training_idata': training_idata,
-                'training_cdata': training_cdata,
-                'test_idata': test_idata,
-                'test_cdata': test_cdata,
-                'returned_dict': returned_dict,
-                'process_index': i,
-            }
-        )
-
-        process.start()
-        process_list.append(process)
-
-    for process in process_list:
-        process.join()
-
-    loss_mse_list = [_['mse'] for _ in returned_dict.values()]
-    loss_mae_list = [_['mae'] for _ in returned_dict.values()]
-
-    print(f'cross validation result mse:{sum(loss_mse_list) / div} mae:{sum(loss_mae_list) / div}')
 
 
 def plot(input_data, output_data, correct_data):
@@ -261,18 +215,3 @@ def plot(input_data, output_data, correct_data):
         ax.scatter(x, y, z, s=40, c=color)
 
     plt.show()
-
-
-def main():
-    # データの準備
-    N = 1
-    input_data = np.concatenate([np.random.rand(DATA_NUM, 2) * 2 * N - 1 * N, np.ones((DATA_NUM, 1), dtype=float)],
-                                axis=1)
-    correct_data = np.array([[my_func(_[0], _[1])] for _ in input_data])
-
-    # 交差検証
-    cross_validation(input_data, correct_data, DIV)
-
-
-if __name__ == '__main__':
-    main()
