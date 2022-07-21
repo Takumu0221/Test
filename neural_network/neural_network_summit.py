@@ -44,16 +44,6 @@ def calc_loss(z: np.ndarray, t: np.ndarray):
     return np.sum(loss)
 
 
-def MSE(z: np.ndarray, t: np.ndarray):
-    loss = np.power(z - t, 2)
-    return loss.mean()
-
-
-def MAE(z: np.ndarray, t: np.ndarray):
-    loss = np.abs(z - t)
-    return loss.mean()
-
-
 class NeuralNetwork:
     def __init__(self,
                  input_nodes=3,
@@ -68,64 +58,13 @@ class NeuralNetwork:
         self.lr = lr
 
         # 活性化関数
-        self.act_func = {"h": sigmoid, "o": identity}
-        self.der_act_func = {"h": derivative_sigmoid, "o": derivative_identity}
+        self.act_func = {"h": relu, "o": identity}
+        self.der_act_func = {"h": derivative_relu, "o": derivative_identity}
 
         # 重みの初期化
         self.w_kj = np.random.normal(0.0, 2.0 / math.sqrt(data_num), (self.output_nodes, self.half_nodes))
         self.w_ji = np.random.normal(0.0, 2.0 / math.sqrt(data_num), (self.half_nodes, self.input_nodes))
 
-    def feed_forward(self, x):
-        """シグマをそのまま記述"""
-        y = np.zeros(self.half_nodes)
-        for j in range(self.half_nodes):
-            for i in range(self.input_nodes):
-                y[j] += x[i] * self.w_ji[j, i]
-            y[j] = self.act_func["h"](y[j])
-
-        z = np.zeros(self.output_nodes)
-        for k in range(self.output_nodes):
-            for j in range(self.half_nodes):
-                z[k] += y[j] * self.w_kj[k, j]
-
-        return z
-
-    def back_prop(self, x, t):
-        """シグマをそのまま記述"""
-        y = np.zeros(self.half_nodes)
-        for j in range(self.half_nodes):
-            for i in range(self.input_nodes):
-                y[j] += x[i] * self.w_ji[j, i]
-            y[j] = sigmoid(y[j])
-            # if np.isnan(y[j]):
-            #     pass
-
-        z = np.zeros(self.output_nodes)
-        for k in range(self.output_nodes):
-            for j in range(self.half_nodes):
-                z[k] += y[j] * self.w_kj[k, j]
-
-        loss = t - z
-
-        # 重みの更新
-        for k in range(self.output_nodes):
-            for j in range(self.half_nodes):
-                self.w_kj[k, j] += self.lr * loss[k] * self.der_act_func["o"](z[k]) * y[j]
-                # if np.isnan(self.w_kj[k, j]) or np.isinf(self.w_kj[k, j]):
-                #     pass
-        for j in range(self.half_nodes):
-            for i in range(self.input_nodes):
-                forward = 0
-                for k in range(self.output_nodes):
-                    forward += self.w_kj[k, j] * loss * self.der_act_func["o"](z[k])
-                self.w_ji[j, i] += self.lr * forward * self.der_act_func["h"](y[j]) * x[i]
-                # if np.isnan(self.w_ji[j, i]) or np.isinf(self.w_ji[j, i]):
-                #     pass
-
-        return z
-
-
-class NeuralNetworkMatrix(NeuralNetwork):
     def feed_forward(self, x: np.ndarray):
         """行列で計算する"""
         xT = x.T
@@ -162,35 +101,37 @@ def train_and_test(
         test_cdata,
         returned_dict,
         process_index,
+        half_nodes=HALF_NODES,
 ):
     """与えられた入力と正解データで学習及びテストを行う"""
-    # nn = NeuralNetwork(half_nodes=HALF_NODES, lr=LR)
-    nn = NeuralNetworkMatrix(half_nodes=HALF_NODES, lr=LR)
+    # nn = NeuralNetwork(half_nodes=half_nodes, lr=LR)
+    nn = NeuralNetwork(half_nodes=half_nodes, lr=LR)
 
     # 学習
+    loss_list = []
     for e in range(EPOCH):
         loss = 0
         data_size = len(training_idata)
         for j in range(data_size):
             z = nn.back_prop(training_idata[j], training_cdata[j])
-            loss += MSE(z, training_cdata[j])
-        print(f'epoch{e} loss:{loss / data_size}') if process_index == 0 else None
+            loss += calc_loss(z, training_cdata[j])
+        print(f'epoch{e} loss:{loss}') if process_index == 0 else None
+        loss_list.append(loss)
 
     # テスト
-    loss_mse = 0
-    loss_mae = 0
+    loss = 0
     data_size = len(test_idata)
     output_data = []
     for j in range(data_size):
         z = nn.feed_forward(test_idata[j])
-        loss_mse += MSE(z, test_cdata[j])
-        loss_mae += MAE(z, test_cdata[j])
+        loss += calc_loss(z, test_cdata[j])
         output_data.append(z)
-    print(f'test mse loss:{loss_mse / data_size}, test mae loss:{loss_mae / data_size}')
+    print(f'test loss:{loss}')
 
     plot(test_idata, output_data, test_cdata)
+    # plot_loss(loss_list)
 
-    returned_dict[process_index] = {'mse': loss_mse / data_size, 'mae': loss_mae / data_size}
+    returned_dict[process_index] = {'sse': loss}
 
 
 def plot(input_data, output_data, correct_data):
