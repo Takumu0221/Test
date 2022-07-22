@@ -6,7 +6,7 @@ from typing import List
 DATA_NUM = 10000
 DIV = 5
 EPOCH = 100
-LR = 0.001
+LR = 0.01
 HALF_NODES = 100
 
 
@@ -19,6 +19,13 @@ def derivative_sigmoid(x):
     return sigmoid(x) * (1.0 - sigmoid(x))
 
 
+def identity(x):
+    return x
+
+def derivative_identity(x):
+    return 1
+
+
 def relu(x):
     return np.maximum(0, x)
 
@@ -27,15 +34,16 @@ def derivative_relu(x):
     return np.where(x > 0, 1, 0)
 
 
-def identity(x):
-    return x
+def tanh_exp(x):
+    return x * np.tanh(np.exp(x))
 
-def derivative_identity(x):
-    return 1
+
+def derivative_tanh_exp(x):
+    return np.tanh(np.exp(x)) - x * np.exp(x) * (np.square(np.tanh(np.exp(x))) - 1)
 
 
 def my_func(x1, x2):
-    return ((x1 ** 2 * x2 ** 2) ** (1 / 3)) * math.cos(x1 * x2)
+    return ((x1 ** 2 * x2 ** 2) ** (1 / 3)) * math.cos(x1 * x2 * 5)
     # return x1 + x2
 
 
@@ -50,7 +58,6 @@ class NeuralNetwork:
                  half_nodes=5,
                  output_nodes=1,
                  lr=0.001,
-                 data_num=10,
                  ):
         self.input_nodes = input_nodes
         self.half_nodes = half_nodes
@@ -58,12 +65,12 @@ class NeuralNetwork:
         self.lr = lr
 
         # 活性化関数
-        self.act_func = {"h": relu, "o": identity}
-        self.der_act_func = {"h": derivative_relu, "o": derivative_identity}
+        self.act_func = {"h": tanh_exp, "o": identity}
+        self.der_act_func = {"h": derivative_tanh_exp, "o": derivative_identity}
 
         # 重みの初期化
-        self.w_kj = np.random.normal(0.0, 2.0 / math.sqrt(data_num), (self.output_nodes, self.half_nodes))
-        self.w_ji = np.random.normal(0.0, 2.0 / math.sqrt(data_num), (self.half_nodes, self.input_nodes))
+        self.w_kj = np.random.normal(0.0, 1.0 / math.sqrt(half_nodes), (self.output_nodes, self.half_nodes))
+        self.w_ji = np.random.normal(0.0, 1.0 / math.sqrt(input_nodes), (self.half_nodes, self.input_nodes))
 
     def feed_forward(self, x: np.ndarray):
         """行列で計算する"""
@@ -129,7 +136,7 @@ def train_and_test(
     print(f'test loss:{loss}')
 
     plot(test_idata, output_data, test_cdata)
-    # plot_loss(loss_list)
+    plot_loss(loss_list)
 
     returned_dict[process_index] = {'sse': loss}
 
@@ -143,7 +150,7 @@ def plot(input_data, output_data, correct_data):
     ax = fig.add_subplot(111, projection='3d')
 
     # Axesのタイトルを設定
-    ax.set_title("learn results", size=20)
+    # ax.set_title("learn results", size=20)
 
     # 軸ラベルを設定
     ax.set_xlabel("x1", size=14, color="r")

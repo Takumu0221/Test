@@ -102,7 +102,7 @@ def main():
     # single_experiment(input_data, correct_data, DIV)
 
     # 実験
-    half_nodes = [10, 100, 1000, 2000]
+    half_nodes = [10, 100, 1000, 3000]
     half_nodes_change(half_nodes, input_data, correct_data, DIV)
 
 

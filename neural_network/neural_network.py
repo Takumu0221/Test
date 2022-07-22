@@ -14,6 +14,11 @@ def sigmoid(x):
     beta = 1.0
     return np.where(x >= 0, 1.0 / (1.0 + np.exp(-beta * x)), np.exp(beta * x) / (np.exp(beta * x) + 1.0))
 
+def sigmoid_(x):
+    beta = 1.0
+    sigmoid_range = 34.538776394910684
+    return 1.0 / (1.0 + np.exp(np.clip(-beta * x, -sigmoid_range, sigmoid_range)))
+
 
 def derivative_sigmoid(x):
     return sigmoid(x) * (1.0 - sigmoid(x))
