@@ -153,7 +153,7 @@ class EP:
 
 def main():
     process_list = []
-    for N in [1e3, 1e4, 1e5]:
+    for N in [1e3, 1e4]:
         for M in [1, 1e1, 1e2]:
             ep = EP()
             param = {

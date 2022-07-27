@@ -10,7 +10,7 @@ from typing import List
 
 
 def rastrigin(x: np.ndarray) -> float:
-    return sum(x * x - 10 * np.cos(2 * math.pi * x + 10))
+    return sum(x * x - 10 * np.cos(2 * math.pi * x) + 10)
 
 
 def ranking_probability(N: int):
